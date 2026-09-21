@@ -8,7 +8,8 @@ import {
   HRVReading,
   ProviderConnection,
   FatigueAnalysis,
-  OrthostaticTestRecord
+  OrthostaticTestRecord,
+  PhysiologicalAlert
 } from './types';
 import {
   getAthletes,
@@ -17,7 +18,10 @@ import {
   getSleep,
   getWorkload,
   getIntegrations,
-  getFatigue
+  getFatigue,
+  getAthleteAlerts,
+  acknowledgeAlert,
+  simulateAlert
 } from './services/api';
 import { Header } from './components/Header';
 import { ReadinessCard } from './components/ReadinessCard';
@@ -26,6 +30,8 @@ import { WorkloadEnergyView } from './components/WorkloadEnergyView';
 import { SleepArchitectureView } from './components/SleepArchitectureView';
 import { FatigueAnalysisView } from './components/FatigueAnalysisView';
 import { DeviceIntegrationsModal } from './components/DeviceIntegrationsModal';
+import { EmergencyAlertBanner } from './components/EmergencyAlertBanner';
+import { AlertsCenterView } from './components/AlertsCenterView';
 import {
   Activity,
   Heart,
@@ -35,7 +41,9 @@ import {
   TrendingUp,
   Sliders,
   AlertCircle,
-  ShieldAlert
+  ShieldAlert,
+  Bell,
+  AlertTriangle
 } from 'lucide-react';
 
 export function App() {
@@ -74,7 +82,8 @@ export function App() {
     latest_orthostatic: OrthostaticTestRecord | null;
   }>({ current: null, history: [], latest_orthostatic: null });
   
-  const [activeTab, setActiveTab] = useState<'readiness' | 'fatigue' | 'workload' | 'sleep' | 'hrv'>('readiness');
+  const [alerts, setAlerts] = useState<PhysiologicalAlert[]>([]);
+  const [activeTab, setActiveTab] = useState<'readiness' | 'fatigue' | 'workload' | 'sleep' | 'hrv' | 'alerts'>('readiness');
   const [isDevicesModalOpen, setIsDevicesModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -103,13 +112,14 @@ export function App() {
     try {
       setLoading(true);
       setError(null);
-      const [readinessRes, workoutsRes, sleepRes, workloadRes, connsRes, fatigueRes] = await Promise.all([
+      const [readinessRes, workoutsRes, sleepRes, workloadRes, connsRes, fatigueRes, alertsRes] = await Promise.all([
         getReadiness(athleteId),
         getWorkouts(athleteId),
         getSleep(athleteId),
         getWorkload(athleteId),
         getIntegrations(athleteId),
-        getFatigue(athleteId)
+        getFatigue(athleteId),
+        getAthleteAlerts(athleteId)
       ]);
 
       setReadinessData(readinessRes);
@@ -118,6 +128,7 @@ export function App() {
       setWorkloadData(workloadRes);
       setConnections(connsRes);
       setFatigueData(fatigueRes);
+      setAlerts(alertsRes);
     } catch (err: any) {
       setError(err.message || 'Error al actualizar métricas del atleta.');
     } finally {
@@ -137,6 +148,25 @@ export function App() {
     }
   };
 
+  const handleAcknowledgeAlert = async (alertId: string) => {
+    try {
+      const updated = await acknowledgeAlert(alertId);
+      setAlerts(prev => prev.map(a => a.id === alertId ? updated : a));
+    } catch (err: any) {
+      alert(`Error al gestionar la alerta: ${err.message}`);
+    }
+  };
+
+  const handleSimulateAlert = async (scenario: string) => {
+    if (!selectedAthlete) return;
+    try {
+      const newAlert = await simulateAlert(selectedAthlete.id, scenario);
+      setAlerts(prev => [newAlert, ...prev]);
+    } catch (err: any) {
+      alert(`Error al simular la alerta: ${err.message}`);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#080b11] text-slate-100 flex flex-col">
       
@@ -149,6 +179,8 @@ export function App() {
         onOpenDevices={() => setIsDevicesModalOpen(true)}
         onRefresh={handleRefresh}
         loading={loading}
+        unacknowledgedAlertsCount={alerts.filter(a => !a.acknowledged).length}
+        onOpenAlerts={() => setActiveTab('alerts')}
       />
 
       {/* Main Content Area */}
@@ -160,6 +192,13 @@ export function App() {
             <span>{error}</span>
           </div>
         )}
+
+        {/* Emergency Biometric Alert Banner (when alarming unacknowledged data exists) */}
+        <EmergencyAlertBanner
+          alerts={alerts}
+          onOpenAlertsCenter={() => setActiveTab('alerts')}
+          onAcknowledge={handleAcknowledgeAlert}
+        />
 
         {/* Athlete Overview & Readiness Card */}
         {selectedAthlete && readinessData.current && (
@@ -183,6 +222,23 @@ export function App() {
             >
               <Activity className="h-4 w-4" />
               Preparación General
+            </button>
+
+            <button
+              onClick={() => setActiveTab('alerts')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                activeTab === 'alerts'
+                  ? 'bg-rose-500/15 text-rose-300 border border-rose-500/40 shadow-sm'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-900/60'
+              }`}
+            >
+              <Bell className={`h-4 w-4 ${alerts.some(a => !a.acknowledged && a.severity === 'CRITICAL') ? 'text-rose-400 animate-pulse' : 'text-slate-400'}`} />
+              Alertas & Triaje
+              {alerts.filter(a => !a.acknowledged).length > 0 && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-500 text-white animate-pulse">
+                  {alerts.filter(a => !a.acknowledged).length}
+                </span>
+              )}
             </button>
 
             <button
@@ -253,6 +309,17 @@ export function App() {
         </div>
 
         {/* Tab Views */}
+        {activeTab === 'alerts' && selectedAthlete && (
+          <AlertsCenterView
+            alerts={alerts}
+            athlete={selectedAthlete}
+            onAcknowledge={handleAcknowledgeAlert}
+            onSimulateAlert={handleSimulateAlert}
+            onRefresh={() => loadAthleteData(selectedAthlete.id)}
+            loading={loading}
+          />
+        )}
+
         {activeTab === 'readiness' && selectedAthlete && (
           <div className="space-y-6">
             <FatigueAnalysisView

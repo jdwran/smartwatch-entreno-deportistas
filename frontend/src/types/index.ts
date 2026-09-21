@@ -162,3 +162,30 @@ export interface FatigueAnalysis {
   recommendation: string;
 }
 
+export interface PhysiologicalAlert {
+  id: string;
+  athlete_id: string;
+  timestamp: string;
+  date: string;
+  severity: 'CRITICAL' | 'HIGH' | 'WARNING' | 'INFO';
+  category: 'METABOLIC_TEMP' | 'NEUROMUSCULAR' | 'CARDIOVASCULAR' | 'AUTONOMIC' | 'SLEEP';
+  title: string;
+  description: string;
+  trigger_metric: string;
+  trigger_value: string;
+  threshold: string;
+  device_source: string;
+  action_required: string;
+  acknowledged: boolean;
+}
+
+export interface AlertsSummary {
+  total_alerts: number;
+  unacknowledged_count: number;
+  critical_count: number;
+  high_count: number;
+  warning_count: number;
+  unacknowledged_alerts: PhysiologicalAlert[];
+  recent_alerts: PhysiologicalAlert[];
+}
+

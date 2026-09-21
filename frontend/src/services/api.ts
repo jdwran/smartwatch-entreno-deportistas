@@ -7,7 +7,9 @@ import {
   WorkloadDay,
   ProviderConnection,
   FatigueAnalysis,
-  OrthostaticTestRecord
+  OrthostaticTestRecord,
+  PhysiologicalAlert,
+  AlertsSummary
 } from '../types';
 
 const API_BASE = 'http://localhost:8000/api';
@@ -110,6 +112,34 @@ export async function runOrthostaticTest(athleteId: string, deviceName = 'Polar 
     method: 'POST'
   });
   if (!res.ok) throw new Error('Error al ejecutar test ortostático');
+  return res.json();
+}
+
+export async function getAthleteAlerts(athleteId: string): Promise<PhysiologicalAlert[]> {
+  const res = await fetch(`${API_BASE}/athletes/${athleteId}/alerts`);
+  if (!res.ok) throw new Error('Error al cargar alertas del atleta');
+  return res.json();
+}
+
+export async function getAlertsSummary(): Promise<AlertsSummary> {
+  const res = await fetch(`${API_BASE}/alerts/summary`);
+  if (!res.ok) throw new Error('Error al cargar resumen de alertas');
+  return res.json();
+}
+
+export async function acknowledgeAlert(alertId: string): Promise<PhysiologicalAlert> {
+  const res = await fetch(`${API_BASE}/alerts/${alertId}/acknowledge`, {
+    method: 'POST'
+  });
+  if (!res.ok) throw new Error('Error al confirmar/gestionar la alerta');
+  return res.json();
+}
+
+export async function simulateAlert(athleteId: string, scenario: string = 'fever'): Promise<PhysiologicalAlert> {
+  const res = await fetch(`${API_BASE}/athletes/${athleteId}/alerts/simulate?scenario=${encodeURIComponent(scenario)}`, {
+    method: 'POST'
+  });
+  if (!res.ok) throw new Error('Error al simular alerta fisiológica');
   return res.json();
 }
 

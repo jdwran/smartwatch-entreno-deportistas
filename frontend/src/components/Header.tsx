@@ -1,6 +1,6 @@
 import React from 'react';
 import { AthleteProfile, ProviderConnection } from '../types';
-import { Activity, Watch, ShieldCheck, RefreshCw, Zap } from 'lucide-react';
+import { Activity, Watch, ShieldCheck, RefreshCw, Zap, Bell, AlertTriangle } from 'lucide-react';
 
 interface HeaderProps {
   athletes: AthleteProfile[];
@@ -10,6 +10,8 @@ interface HeaderProps {
   onOpenDevices: () => void;
   onRefresh: () => void;
   loading: boolean;
+  unacknowledgedAlertsCount?: number;
+  onOpenAlerts?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -19,7 +21,9 @@ export const Header: React.FC<HeaderProps> = ({
   connections,
   onOpenDevices,
   onRefresh,
-  loading
+  loading,
+  unacknowledgedAlertsCount = 0,
+  onOpenAlerts
 }) => {
   const connectedCount = connections.filter(c => c.connected).length;
 
@@ -80,11 +84,29 @@ export const Header: React.FC<HeaderProps> = ({
             </select>
           </div>
 
+          {/* Alerts Triaging Button */}
+          <button
+            onClick={onOpenAlerts}
+            className={`relative p-2 rounded-lg border transition cursor-pointer ${
+              unacknowledgedAlertsCount > 0
+                ? 'bg-rose-950/40 border-rose-500/50 text-rose-300 hover:bg-rose-900/60 shadow-md shadow-rose-950/40'
+                : 'bg-slate-900 border-slate-800 hover:bg-slate-800 text-slate-400 hover:text-white'
+            }`}
+            title="Centro de Alertas & Triaje Fisiológico"
+          >
+            <Bell className={`h-4 w-4 ${unacknowledgedAlertsCount > 0 ? 'text-rose-400' : ''}`} />
+            {unacknowledgedAlertsCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 h-4 min-w-[16px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-black flex items-center justify-center animate-pulse shadow-sm shadow-rose-500/50">
+                {unacknowledgedAlertsCount}
+              </span>
+            )}
+          </button>
+
           {/* Refresh Button */}
           <button
             onClick={onRefresh}
             disabled={loading}
-            className="p-2 rounded-lg bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-400 hover:text-cyan-400 transition disabled:opacity-50"
+            className="p-2 rounded-lg bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-400 hover:text-cyan-400 transition disabled:opacity-50 cursor-pointer"
             title="Sincronizar telemetría"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin text-cyan-400' : ''}`} />

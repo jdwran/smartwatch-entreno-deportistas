@@ -9,12 +9,14 @@ from backend.app.models.schemas import (
     DailyReadiness,
     ProviderConnection,
     OrthostaticTestRecord,
-    FatigueAnalysis
+    FatigueAnalysis,
+    PhysiologicalAlert
 )
 from backend.app.ingestion.mock_generator import mock_db
 from backend.app.ingestion.fit_parser import parse_fit_file_bytes
 from backend.app.sports_science.hrv_engine import analyze_hrv_readiness
 from backend.app.sports_science.fatigue_engine import evaluate_orthostatic_test, synthesize_athlete_fatigue
+from backend.app.sports_science.alert_engine import generate_simulated_alert
 
 router = APIRouter(prefix="/api")
 
@@ -244,4 +246,102 @@ def run_orthostatic_test_endpoint(
     mock_db.fatigue_history[athlete_id].append(fatigue_record)
     
     return record
+
+
+# -------------------------------------------------------------
+# Physiological Alerts & Critical Triaging Endpoints
+# -------------------------------------------------------------
+
+@router.get("/athletes/{athlete_id}/alerts", response_model=List[PhysiologicalAlert])
+def get_athlete_alerts(athlete_id: str):
+    """
+    Returns all physiological alerts detected for a given athlete, sorted with active/unacknowledged first.
+    """
+    if athlete_id not in mock_db.athletes:
+        raise HTTPException(status_code=404, detail="Atleta no encontrado")
+    
+    alerts = mock_db.alerts.get(athlete_id, [])
+    # Sort: unacknowledged first, then by timestamp desc
+    return sorted(alerts, key=lambda a: (a.acknowledged, -a.timestamp.timestamp()))
+
+
+@router.get("/alerts/summary")
+def get_alerts_summary():
+    """
+    Returns an aggregated triage summary of all active alerts across the athlete squad.
+    """
+    total_alerts = 0
+    unacknowledged_count = 0
+    critical_count = 0
+    high_count = 0
+    warning_count = 0
+    all_alerts: List[PhysiologicalAlert] = []
+    unack_alerts: List[PhysiologicalAlert] = []
+
+    severity_weight = {"CRITICAL": 0, "HIGH": 1, "WARNING": 2, "INFO": 3}
+
+    for ath_id, athlete_alerts in mock_db.alerts.items():
+        for alert in athlete_alerts:
+            total_alerts += 1
+            all_alerts.append(alert)
+            if not alert.acknowledged:
+                unacknowledged_count += 1
+                if alert.severity == "CRITICAL":
+                    critical_count += 1
+                elif alert.severity == "HIGH":
+                    high_count += 1
+                elif alert.severity == "WARNING":
+                    warning_count += 1
+                unack_alerts.append(alert)
+
+    # Sort unacknowledged by severity urgency, then timestamp descending
+    unack_alerts.sort(key=lambda a: (severity_weight.get(a.severity, 4), -a.timestamp.timestamp()))
+    all_alerts.sort(key=lambda a: -a.timestamp.timestamp())
+
+    return {
+        "total_alerts": total_alerts,
+        "unacknowledged_count": unacknowledged_count,
+        "critical_count": critical_count,
+        "high_count": high_count,
+        "warning_count": warning_count,
+        "unacknowledged_alerts": unack_alerts,
+        "recent_alerts": all_alerts[:15]
+    }
+
+
+@router.post("/alerts/{alert_id}/acknowledge", response_model=PhysiologicalAlert)
+def acknowledge_alert(alert_id: str):
+    """
+    Marks a physiological alert as acknowledged/triaged by the coaching or medical staff.
+    """
+    for ath_id, athlete_alerts in mock_db.alerts.items():
+        for alert in athlete_alerts:
+            if alert.id == alert_id:
+                alert.acknowledged = True
+                return alert
+                
+    raise HTTPException(status_code=404, detail="Alerta fisiológica no encontrada")
+
+
+@router.post("/athletes/{athlete_id}/alerts/simulate", response_model=PhysiologicalAlert)
+def simulate_physiological_alert(
+    athlete_id: str,
+    scenario: str = "fever"
+):
+    """
+    Simulates a critical or alarming biometric event on demand to test the coach alerting system.
+    Supported scenarios: 'fever', 'gct_asymmetry', 'acwr_danger', 'baroreflex_failure',
+                         'tachycardia_ortho', 'rmssd_collapse', 'aerobic_drift', 'non_dipper'
+    """
+    if athlete_id not in mock_db.athletes:
+        raise HTTPException(status_code=404, detail="Atleta no encontrado")
+        
+    sim_alert = generate_simulated_alert(athlete_id=athlete_id, scenario=scenario)
+    
+    if athlete_id not in mock_db.alerts:
+        mock_db.alerts[athlete_id] = []
+    
+    # Prepend the newly generated alert
+    mock_db.alerts[athlete_id].insert(0, sim_alert)
+    return sim_alert
 

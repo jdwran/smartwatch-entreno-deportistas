@@ -166,3 +166,21 @@ class FatigueAnalysis(BaseModel):
     nocturnal_temp_deviation: Optional[float] = None  # Oura ring deviation in °C
     recommendation: str
 
+
+class PhysiologicalAlert(BaseModel):
+    id: str
+    athlete_id: str
+    timestamp: datetime
+    date: str  # YYYY-MM-DD
+    severity: str  # "CRITICAL", "HIGH", "WARNING", "INFO"
+    category: str  # "AUTONOMIC", "CARDIOVASCULAR", "NEUROMUSCULAR", "METABOLIC_TEMP", "SLEEP"
+    title: str
+    description: str
+    trigger_metric: str
+    trigger_value: str
+    threshold: str
+    device_source: str
+    action_required: str
+    acknowledged: bool = False
+
+

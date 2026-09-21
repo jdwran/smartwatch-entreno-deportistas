@@ -12,12 +12,14 @@ from backend.app.models.schemas import (
     ProviderConnection,
     OrthostaticTestRecord,
     FatigueAnalysis,
-    FatiguePillars
+    FatiguePillars,
+    PhysiologicalAlert
 )
 from backend.app.sports_science.fatigue_engine import (
     evaluate_orthostatic_test,
     synthesize_athlete_fatigue
 )
+from backend.app.sports_science.alert_engine import evaluate_athlete_alerts
 from backend.app.sports_science.energy_engine import (
     calculate_hr_zones,
     calculate_edwards_trimp,
@@ -215,6 +217,7 @@ class MockDatabase:
         self.daily_readiness: Dict[str, List[DailyReadiness]] = {}
         self.orthostatic_tests: Dict[str, List[OrthostaticTestRecord]] = {}
         self.fatigue_history: Dict[str, List[FatigueAnalysis]] = {}
+        self.alerts: Dict[str, List[PhysiologicalAlert]] = {}
         self.connections = CONNECTIONS_STATE
         
         self._generate_30_day_history()
@@ -475,6 +478,57 @@ class MockDatabase:
                     nocturnal_temp_deviation=temp_dev
                 )
                 self.fatigue_history[athlete_id].append(fatigue_record)
+
+            # 7. Evaluate and Store Physiological Alerts
+            self.alerts[athlete_id] = []
+            current_idx = len(self.workload_history[athlete_id]) - 1
+            current_alerts = evaluate_athlete_alerts(
+                athlete=athlete,
+                date_str=self.workload_history[athlete_id][current_idx].date,
+                readiness=self.daily_readiness[athlete_id][current_idx],
+                workload=self.workload_history[athlete_id][current_idx],
+                latest_hrv=self.hrv_records[athlete_id][current_idx],
+                latest_sleep=self.sleep_records[athlete_id][current_idx],
+                latest_ortho=self.orthostatic_tests[athlete_id][current_idx],
+                fatigue=self.fatigue_history[athlete_id][current_idx]
+            )
+            self.alerts[athlete_id].extend(current_alerts)
+
+            # Add sample historic alerts for demonstration
+            if athlete.id == "ath-01":
+                self.alerts[athlete_id].append(PhysiologicalAlert(
+                    id="alt-sample-01",
+                    athlete_id=athlete_id,
+                    timestamp=now - timedelta(days=2),
+                    date=(now - timedelta(days=2)).strftime("%Y-%m-%d"),
+                    severity="HIGH",
+                    category="CARDIOVASCULAR",
+                    title="Sobrecarga Rápida en Microciclo de Volumen",
+                    description="Incremento del 35% en el volumen semanal respecto a la media crónica (ACWR = 1.48).",
+                    trigger_metric="ACWR",
+                    trigger_value="1.48",
+                    threshold="1.45",
+                    device_source="Garmin Forerunner 965",
+                    action_required="Ajustar kilometraje en tirada larga dominical y descansar viernes.",
+                    acknowledged=True
+                ))
+            elif athlete.id == "ath-02":
+                self.alerts[athlete_id].append(PhysiologicalAlert(
+                    id="alt-sample-02",
+                    athlete_id=athlete_id,
+                    timestamp=now - timedelta(days=3),
+                    date=(now - timedelta(days=3)).strftime("%Y-%m-%d"),
+                    severity="CRITICAL",
+                    category="NEUROMUSCULAR",
+                    title="Alerta Crítica: Asimetría Severa en Dinámica de Carrera",
+                    description="Asimetría de contacto con el suelo del 2.7% (51.4% Izq / 48.6% Der). Riesgo de sobrecarga en gemelo izquierdo.",
+                    trigger_metric="Asimetría GCT Balance",
+                    trigger_value="2.7 %",
+                    threshold="2.5 %",
+                    device_source="Garmin HRM-Pro Plus",
+                    action_required="Sesión de descarga miofascial y sustituir carrera por rodillo suave.",
+                    acknowledged=True
+                ))
 
     def _generate_workout_session(self, athlete: AthleteProfile, day_date, session_index: int, phase: str) -> WorkoutSession:
         sports_pool = ["cycling", "running", "swimming"] if athlete.id == "ath-01" else ["cycling", "strength", "cycling"]
