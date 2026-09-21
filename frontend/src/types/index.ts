@@ -115,4 +115,50 @@ export interface ProviderConnection {
   account_email?: string;
   supported_metrics: string[];
   auth_type: string;
+  category?: 'chest_strap' | 'smartwatch' | 'smart_ring' | 'power_meter';
 }
+
+export interface OrthostaticTestRecord {
+  id: string;
+  athlete_id: string;
+  date: string;
+  timestamp: string;
+  device_name: string;
+  supine_avg_hr: number;
+  supine_rmssd: number;
+  stand_peak_hr: number;
+  stand_avg_hr: number;
+  stand_rmssd: number;
+  delta_hr: number;
+  delta_rmssd_pct: number;
+  status: string;
+  status_label: string;
+  hr_curve: number[];
+  fatigue_level: string;
+  fatigue_score: number;
+  interpretation: string;
+  recommendation: string;
+}
+
+export interface FatiguePillars {
+  autonomic: number;
+  cardiovascular: number;
+  neuromuscular: number;
+  metabolic_temp: number;
+}
+
+export interface FatigueAnalysis {
+  athlete_id: string;
+  date: string;
+  overall_fatigue_score: number;
+  fatigue_state: string;
+  state_color: string;
+  primary_stressor: string;
+  pillars: FatiguePillars;
+  latest_orthostatic?: OrthostaticTestRecord;
+  gct_asymmetry_pct?: number;
+  aerobic_decoupling_pct?: number;
+  nocturnal_temp_deviation?: number;
+  recommendation: string;
+}
+

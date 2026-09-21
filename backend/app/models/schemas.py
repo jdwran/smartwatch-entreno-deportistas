@@ -113,10 +113,56 @@ class DailyReadiness(BaseModel):
 
 
 class ProviderConnection(BaseModel):
-    provider_id: str  # "garmin", "polar", "whoop", "apple_health"
+    provider_id: str  # "garmin", "polar", "whoop", "apple_health", "polar_h10", "garmin_hrm", "oura_ring", etc.
     name: str
     connected: bool
     last_sync: Optional[datetime] = None
     account_email: Optional[str] = None
     supported_metrics: List[str] = []
-    auth_type: str  # "oauth2", "webhook", "health_connect", "fit_direct"
+    auth_type: str  # "oauth2", "webhook", "health_connect", "fit_direct", "ble_ecg"
+    category: str = "smartwatch"  # "chest_strap", "smartwatch", "smart_ring", "power_meter"
+
+
+class OrthostaticTestRecord(BaseModel):
+    id: str
+    athlete_id: str
+    date: str  # YYYY-MM-DD
+    timestamp: datetime
+    device_name: str = "Polar H10 (ECG Grade)"
+    supine_avg_hr: int
+    supine_rmssd: float
+    stand_peak_hr: int
+    stand_avg_hr: int
+    stand_rmssd: float
+    delta_hr: int  # stand_avg_hr - supine_avg_hr
+    delta_rmssd_pct: float
+    status: str  # "optimal_adaptation", "sympathetic_overdrive", "parasympathetic_exhaustion", "orthostatic_intolerance"
+    status_label: str
+    hr_curve: List[int] = []  # Telemetry timeline across supine, transition, and stand
+    fatigue_level: str  # "Baja / Fresco", "Moderada", "Alta / Fatiga Adrenérgica", "Agotamiento Crónico"
+    fatigue_score: int  # 0 to 100 (higher = more fatigued)
+    interpretation: str
+    recommendation: str
+
+
+class FatiguePillars(BaseModel):
+    autonomic: float  # 0-100 (derived from Orthostatic Test & HRV RMSSD)
+    cardiovascular: float  # 0-100 (derived from ACWR & Aerobic Decoupling)
+    neuromuscular: float  # 0-100 (derived from GCT Asymmetry / Power drift)
+    metabolic_temp: float  # 0-100 (derived from Oura nocturnal temp & sleep debt)
+
+
+class FatigueAnalysis(BaseModel):
+    athlete_id: str
+    date: str
+    overall_fatigue_score: int  # 0 to 100 (0 = Fresco, 100 = Sobreentrenamiento Agudo)
+    fatigue_state: str  # "Fresco / Óptimo", "Fatiga Funcional", "Fatiga Alta", "Agotamiento / Sobreentrenamiento"
+    state_color: str  # "emerald", "cyan", "amber", "rose"
+    primary_stressor: str
+    pillars: FatiguePillars
+    latest_orthostatic: Optional[OrthostaticTestRecord] = None
+    gct_asymmetry_pct: Optional[float] = None  # e.g., 50.8 / 49.2 -> 1.6% asymmetry
+    aerobic_decoupling_pct: Optional[float] = None  # Pw:HR drift %
+    nocturnal_temp_deviation: Optional[float] = None  # Oura ring deviation in °C
+    recommendation: str
+

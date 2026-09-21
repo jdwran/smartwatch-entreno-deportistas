@@ -58,6 +58,25 @@ Para resolver el reto de conectar "cualquier reloj inteligente" de marcas con ec
   $$\text{Dip \%} = \frac{\text{FC Reposo Diurna} - \text{FC Nocturna Mínima}}{\text{FC Reposo Diurna}} \times 100$$
   - Target en deportistas de élite: **$10\% - 20\%$**.
 
+### D. Bandas Cardíacas Pectorales (ECG) & Motor Avanzado de Fatiga
+
+Las bandas pectorales (**Polar H10, Garmin HRM-Pro Plus, Wahoo TICKR X**) registran microvoltajes eléctricos (ECG) con resolución de **1 milisegundo en intervalos R-R**, permitiendo diagnósticos de fatiga inalcanzables con sensores ópticos de muñeca:
+
+1. **Test Ortostático Matutino (Orthostatic Baroreflex Test)**:
+   - **Fase Supino (3 min)**: Evaluación del tono parasimpático basal ($\text{FC}_{supino}$, $\text{RMSSD}_{supino}$).
+   - **Transición & Pico Postural**: Respuesta barorrefleja aguda ($\text{HR}_{peak}$).
+   - **Fase Bipedestación (3 min)**: Activación adrenérgica estabilizada ($\text{HR}_{stand}$, $\Delta\text{HR} = \text{HR}_{stand} - \text{HR}_{supino}$).
+   - **Interpretación**:
+     - *Adaptación Óptima*: $\Delta\text{HR}$ entre $12$ y $22\text{ bpm}$ y $\text{RMSSD}_{stand} \ge 15\text{ ms}$.
+     - *Fatiga Simpática / Estrés Adrenérgico*: $\Delta\text{HR} > 24\text{ bpm}$ o caída de RMSSD $>75\%$ (deshidratación, hipovolemia, sobrecarga aguda).
+     - *Agotamiento Vagal / Sobreentrenamiento Crónico*: $\Delta\text{HR} < 8\text{ bpm}$ (falta total de reactividad autonómica).
+
+2. **Matriz de los 4 Pilares de Fatiga Multidispositivo (0 a 100)**:
+   - **Pilar Autonómico (40%)**: Banda Polar H10 (Test Ortostático & RMSSD).
+   - **Pilar Cardiovascular (25%)**: Stryd / Favero + FC (Desacople aeróbico $Pw:\text{HR} > 5\%$ y ACWR).
+   - **Pilar Neuromuscular (20%)**: Garmin HRM-Pro Plus (Asimetría en tiempo de contacto con el suelo $\text{GCT} > 1.5\%$).
+   - **Pilar Metabólico/Térmico (15%)**: Oura Ring Gen 3 (Desviación de temperatura basal nocturna $\Delta T^\circ > +0.3^\circ\text{C}$).
+
 ---
 
 ## 3. Instrucciones de Ejecución

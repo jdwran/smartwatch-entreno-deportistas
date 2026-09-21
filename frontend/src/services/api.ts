@@ -5,7 +5,9 @@ import {
   DailyReadiness,
   HRVReading,
   WorkloadDay,
-  ProviderConnection
+  ProviderConnection,
+  FatigueAnalysis,
+  OrthostaticTestRecord
 } from '../types';
 
 const API_BASE = 'http://localhost:8000/api';
@@ -86,3 +88,28 @@ export async function uploadFitFile(athleteId: string, file: File): Promise<{
   if (!res.ok) throw new Error('Error al procesar archivo .FIT');
   return res.json();
 }
+
+export async function getFatigue(athleteId: string): Promise<{
+  current: FatigueAnalysis;
+  history: FatigueAnalysis[];
+  latest_orthostatic: OrthostaticTestRecord | null;
+}> {
+  const res = await fetch(`${API_BASE}/athletes/${athleteId}/fatigue`);
+  if (!res.ok) throw new Error('Error al cargar nivel de fatiga');
+  return res.json();
+}
+
+export async function getOrthostaticTests(athleteId: string): Promise<OrthostaticTestRecord[]> {
+  const res = await fetch(`${API_BASE}/athletes/${athleteId}/orthostatic-tests`);
+  if (!res.ok) throw new Error('Error al cargar tests ortostáticos');
+  return res.json();
+}
+
+export async function runOrthostaticTest(athleteId: string, deviceName = 'Polar H10 (Banda ECG)'): Promise<OrthostaticTestRecord> {
+  const res = await fetch(`${API_BASE}/athletes/${athleteId}/orthostatic-test?device_name=${encodeURIComponent(deviceName)}`, {
+    method: 'POST'
+  });
+  if (!res.ok) throw new Error('Error al ejecutar test ortostático');
+  return res.json();
+}
+

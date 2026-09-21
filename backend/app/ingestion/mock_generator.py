@@ -9,7 +9,14 @@ from backend.app.models.schemas import (
     SleepRecord,
     WorkloadDay,
     DailyReadiness,
-    ProviderConnection
+    ProviderConnection,
+    OrthostaticTestRecord,
+    FatigueAnalysis,
+    FatiguePillars
+)
+from backend.app.sports_science.fatigue_engine import (
+    evaluate_orthostatic_test,
+    synthesize_athlete_fatigue
 )
 from backend.app.sports_science.energy_engine import (
     calculate_hr_zones,
@@ -52,22 +59,64 @@ ATHLETES: List[AthleteProfile] = [
 CONNECTIONS_STATE: Dict[str, List[ProviderConnection]] = {
     "ath-01": [
         ProviderConnection(
+            provider_id="polar_h10",
+            name="Polar H10 (Banda Pectoral ECG)",
+            connected=True,
+            last_sync=datetime.now(timezone.utc) - timedelta(minutes=25),
+            account_email="carlos.alarcon@polarflow.com",
+            supported_metrics=["Intervalos R-R ECG (1ms)", "Test Ortostático Matutino", "HRV RMSSD Médico", "DFA alpha-1"],
+            auth_type="ble_ecg",
+            category="chest_strap"
+        ),
+        ProviderConnection(
+            provider_id="garmin_hrm",
+            name="Garmin HRM-Pro Plus",
+            connected=True,
+            last_sync=datetime.now(timezone.utc) - timedelta(hours=2),
+            account_email="carlos.alarcon@triatlon-pro.com",
+            supported_metrics=["Dinámica de Carrera", "Asimetría GCT Balance (% Izq/Der)", "Oscilación Vertical", "Poder de Zancada"],
+            auth_type="ble_ecg",
+            category="chest_strap"
+        ),
+        ProviderConnection(
             provider_id="garmin",
-            name="Garmin Connect",
+            name="Garmin Forerunner 965",
             connected=True,
             last_sync=datetime.now(timezone.utc) - timedelta(minutes=15),
             account_email="carlos.alarcon@triatlon-pro.com",
             supported_metrics=["Frecuencia Cardíaca 1Hz", "Potencia", "Cadencia", "GPS", "Fases de Sueño", "VO2max"],
-            auth_type="oauth2"
+            auth_type="oauth2",
+            category="smartwatch"
         ),
         ProviderConnection(
-            provider_id="polar",
-            name="Polar Flow / H10 Band",
+            provider_id="oura_ring",
+            name="Oura Ring Gen 3 Horizon",
             connected=True,
-            last_sync=datetime.now(timezone.utc) - timedelta(hours=3),
-            account_email="carlos.alarcon@polarflow.com",
-            supported_metrics=["Intervalos R-R ECG", "HRV RMSSD Nocturno", "Gasto Energético"],
-            auth_type="oauth2"
+            last_sync=datetime.now(timezone.utc) - timedelta(hours=4),
+            account_email="carlos.alarcon@oura.com",
+            supported_metrics=["Temperatura Basal Nocturna (ΔT°)", "HRV Nocturno Continuo", "Eficiencia del Sueño", "Latencia"],
+            auth_type="oauth2",
+            category="smart_ring"
+        ),
+        ProviderConnection(
+            provider_id="stryd_power",
+            name="Stryd Next Gen (Potenciómetro Running)",
+            connected=True,
+            last_sync=datetime.now(timezone.utc) - timedelta(hours=6),
+            account_email="carlos.alarcon@stryd.com",
+            supported_metrics=["Potencia de Carrera (Watts)", "Rigidez Elástica Pierna (LSS)", "Desacople Pw:HR"],
+            auth_type="ble_ecg",
+            category="power_meter"
+        ),
+        ProviderConnection(
+            provider_id="wahoo_tickr",
+            name="Wahoo TICKR X",
+            connected=False,
+            last_sync=None,
+            account_email=None,
+            supported_metrics=["Memoria de Entrenamiento Offline", "Cadencia", "HRV"],
+            auth_type="ble_ecg",
+            category="chest_strap"
         ),
         ProviderConnection(
             provider_id="whoop",
@@ -76,7 +125,8 @@ CONNECTIONS_STATE: Dict[str, List[ProviderConnection]] = {
             last_sync=None,
             account_email=None,
             supported_metrics=["Recovery Score", "Sleep Architecture", "Day Strain"],
-            auth_type="oauth2"
+            auth_type="oauth2",
+            category="smartwatch"
         ),
         ProviderConnection(
             provider_id="apple_health",
@@ -85,10 +135,21 @@ CONNECTIONS_STATE: Dict[str, List[ProviderConnection]] = {
             last_sync=None,
             account_email=None,
             supported_metrics=["Actividad Diaria", "Frecuencia Cardíaca en Reposo"],
-            auth_type="health_connect"
+            auth_type="health_connect",
+            category="smartwatch"
         )
     ],
     "ath-02": [
+        ProviderConnection(
+            provider_id="polar_h10",
+            name="Polar H10 (Banda Pectoral ECG)",
+            connected=True,
+            last_sync=datetime.now(timezone.utc) - timedelta(minutes=10),
+            account_email="valentina.gomez@polarflow.com",
+            supported_metrics=["Intervalos R-R ECG", "Test Ortostático Matutino", "HRV Alta Resolución"],
+            auth_type="ble_ecg",
+            category="chest_strap"
+        ),
         ProviderConnection(
             provider_id="whoop",
             name="Whoop 4.0 Strap",
@@ -96,7 +157,8 @@ CONNECTIONS_STATE: Dict[str, List[ProviderConnection]] = {
             last_sync=datetime.now(timezone.utc) - timedelta(minutes=8),
             account_email="valentina.gomez@cycling-elite.com",
             supported_metrics=["Recovery Score", "Sleep Architecture", "HRV Nocturno", "Day Strain"],
-            auth_type="oauth2"
+            auth_type="oauth2",
+            category="smartwatch"
         ),
         ProviderConnection(
             provider_id="garmin",
@@ -105,16 +167,28 @@ CONNECTIONS_STATE: Dict[str, List[ProviderConnection]] = {
             last_sync=datetime.now(timezone.utc) - timedelta(hours=2),
             account_email="valentina.gomez@cycling-elite.com",
             supported_metrics=["Potencia W/kg", "Zonas FC", "Cadencia", "Temperatura", "Archivos FIT"],
-            auth_type="oauth2"
+            auth_type="oauth2",
+            category="smartwatch"
         ),
         ProviderConnection(
-            provider_id="polar",
-            name="Polar Flow",
-            connected=False,
-            last_sync=None,
-            account_email=None,
-            supported_metrics=["Intervalos R-R", "HRV"],
-            auth_type="oauth2"
+            provider_id="favero_assioma",
+            name="Favero Assioma DUO (Pedales Potencia)",
+            connected=True,
+            last_sync=datetime.now(timezone.utc) - timedelta(hours=3),
+            account_email="valentina.gomez@cycling-elite.com",
+            supported_metrics=["Potencia Izquierda/Derecha Real", "Eficacia de Par (Torque)", "Desacople Pw:HR"],
+            auth_type="ble_ecg",
+            category="power_meter"
+        ),
+        ProviderConnection(
+            provider_id="oura_ring",
+            name="Oura Ring Gen 3",
+            connected=True,
+            last_sync=datetime.now(timezone.utc) - timedelta(hours=5),
+            account_email="valentina.gomez@oura.com",
+            supported_metrics=["Temperatura Basal (ΔT°)", "Fases de Sueño", "Recuperación Nocturna"],
+            auth_type="oauth2",
+            category="smart_ring"
         ),
         ProviderConnection(
             provider_id="apple_health",
@@ -123,7 +197,8 @@ CONNECTIONS_STATE: Dict[str, List[ProviderConnection]] = {
             last_sync=datetime.now(timezone.utc) - timedelta(hours=5),
             account_email="valen.apple@icloud.com",
             supported_metrics=["Pasos", "Gasto Basal", "Frecuencia Respiratoria"],
-            auth_type="health_connect"
+            auth_type="health_connect",
+            category="smartwatch"
         )
     ]
 }
@@ -138,6 +213,8 @@ class MockDatabase:
         self.hrv_records: Dict[str, List[HRVReading]] = {}
         self.workload_history: Dict[str, List[WorkloadDay]] = {}
         self.daily_readiness: Dict[str, List[DailyReadiness]] = {}
+        self.orthostatic_tests: Dict[str, List[OrthostaticTestRecord]] = {}
+        self.fatigue_history: Dict[str, List[FatigueAnalysis]] = {}
         self.connections = CONNECTIONS_STATE
         
         self._generate_30_day_history()
@@ -322,6 +399,82 @@ class MockDatabase:
                     training_recommendation=rec,
                     intensity_target=intensity
                 ))
+
+            # 6. Generate Orthostatic Tests (ECG Chest Strap) & Fatigue Analysis History
+            self.orthostatic_tests[athlete_id] = []
+            self.fatigue_history[athlete_id] = []
+
+            for i, wl in enumerate(self.workload_history[athlete_id]):
+                hrv_item = self.hrv_records[athlete_id][i]
+                day_offset = 29 - i
+                cycle_day = (30 - day_offset) % 28
+
+                if 14 <= cycle_day <= 19:
+                    phase = "overload"
+                elif 21 <= cycle_day <= 26:
+                    phase = "taper"
+                else:
+                    phase = "build"
+
+                # Simulate chest strap ECG metrics
+                if phase == "overload":
+                    supine_hr = athlete.resting_hr + random.randint(3, 6)
+                    supine_rmssd_val = max(35.0, hrv_item.rmssd * 0.8)
+                    stand_peak = supine_hr + random.randint(38, 46)
+                    stand_avg = supine_hr + random.randint(26, 31)
+                    stand_rmssd_val = 14.0
+                    asymmetry = round(random.uniform(1.6, 2.4), 2)
+                    decoupling = round(random.uniform(5.8, 8.5), 1)
+                    temp_dev = round(random.uniform(0.35, 0.55), 2)
+                elif phase == "taper":
+                    supine_hr = max(38, athlete.resting_hr - random.randint(1, 3))
+                    supine_rmssd_val = hrv_item.rmssd * 1.15
+                    stand_peak = supine_hr + random.randint(20, 26)
+                    stand_avg = supine_hr + random.randint(13, 18)
+                    stand_rmssd_val = 38.0
+                    asymmetry = round(random.uniform(0.3, 0.7), 2)
+                    decoupling = round(random.uniform(1.5, 3.2), 1)
+                    temp_dev = round(random.uniform(-0.1, 0.1), 2)
+                else:
+                    supine_hr = athlete.resting_hr + random.randint(-1, 2)
+                    supine_rmssd_val = hrv_item.rmssd
+                    stand_peak = supine_hr + random.randint(25, 32)
+                    stand_avg = supine_hr + random.randint(16, 22)
+                    stand_rmssd_val = 26.0
+                    asymmetry = round(random.uniform(0.6, 1.2), 2)
+                    decoupling = round(random.uniform(3.0, 4.6), 1)
+                    temp_dev = round(random.uniform(0.0, 0.15), 2)
+
+                supine_series = [int(supine_hr + random.randint(-1, 2)) for _ in range(25)]
+                stand_series = [int(stand_avg + random.randint(-2, 2)) for _ in range(30)]
+                supine_rrs = [float(round(60000.0 / (supine_hr + random.uniform(-2, 2)), 1)) for _ in range(30)]
+                stand_rrs = [float(round(60000.0 / (stand_avg + random.uniform(-1, 1)), 1)) for _ in range(30)]
+
+                device_label = "Polar H10 (Banda ECG)" if athlete.id == "ath-01" else "Garmin HRM-Pro Plus"
+                ortho_record = evaluate_orthostatic_test(
+                    athlete_id=athlete_id,
+                    date_str=wl.date,
+                    supine_hr_series=supine_series,
+                    supine_rr_ms=supine_rrs,
+                    stand_peak_hr=stand_peak,
+                    stand_hr_series=stand_series,
+                    stand_rr_ms=stand_rrs,
+                    device_name=device_label
+                )
+                self.orthostatic_tests[athlete_id].append(ortho_record)
+
+                fatigue_record = synthesize_athlete_fatigue(
+                    athlete_id=athlete_id,
+                    date_str=wl.date,
+                    orthostatic=ortho_record,
+                    acwr=wl.acwr,
+                    latest_rmssd=hrv_item.rmssd,
+                    baseline_rmssd=hrv_item.baseline_7d_mean,
+                    gct_asymmetry_pct=asymmetry,
+                    aerobic_decoupling_pct=decoupling,
+                    nocturnal_temp_deviation=temp_dev
+                )
+                self.fatigue_history[athlete_id].append(fatigue_record)
 
     def _generate_workout_session(self, athlete: AthleteProfile, day_date, session_index: int, phase: str) -> WorkoutSession:
         sports_pool = ["cycling", "running", "swimming"] if athlete.id == "ath-01" else ["cycling", "strength", "cycling"]
