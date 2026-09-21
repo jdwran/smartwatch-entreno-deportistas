@@ -12,7 +12,7 @@ import {
   AlertsSummary
 } from '../types';
 
-const API_BASE = 'http://localhost:8000/api';
+const API_BASE = import.meta.env.VITE_API_BASE || (import.meta.env.PROD ? '/api' : 'http://localhost:8000/api');
 
 export async function getAthletes(): Promise<AthleteProfile[]> {
   const res = await fetch(`${API_BASE}/athletes`);
